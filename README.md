@@ -3,7 +3,7 @@
 ### Translations
 [Русский](./README_ru.md)
 
-### Features
+### Description
 - Clean architecture;
 - Graceful application shutdown;
 - Error logging to Stderr and a file;
@@ -16,3 +16,6 @@
 ```sh
 git clone https://github.com/skvdmt/go-template-app
 ```
+
+## Links:
+- [Docker image](https://hub.docker.com/r/skvdmt/go-template-app) — Docker image on docker hub.
