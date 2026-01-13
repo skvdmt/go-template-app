@@ -18,4 +18,5 @@ git clone https://github.com/skvdmt/go-template-app
 ```
 
 ## Ссылки:
-- [Docker image](https://hub.docker.com/r/skvdmt/go-template-app) — Собраный образ приложения на docker hub.
+- [Docker образ](https://hub.docker.com/r/skvdmt/go-template-app) — Собраный образ приложения на docker hub.
+- [Автор](https://skvdmt.ru) — Дмитрий Скиданов.
