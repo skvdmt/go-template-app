@@ -27,7 +27,7 @@ RUN ln -s /usr/share/zoneinfo/Europe/Moscow /etc/localtime
 COPY ./config /etc
 COPY --from=building /usr/local/bin/${NAME} /usr/local/bin/${NAME}
 # Создание точки входа.
-COPY ./entrypoint.sh .
-RUN echo "exec ${NAME}" >> ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
-ENTRYPOINT [ "./entrypoint.sh" ]
+COPY ./docker-entrypoint.sh /usr/local/bin
+RUN echo "exec ${NAME}" >> /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT [ "docker-entrypoint.sh" ]
