@@ -1,0 +1,6 @@
+services:
+  db:
+  migrate:
+  go-template-app:
+volumes:
+  go-template-app-pgdata
