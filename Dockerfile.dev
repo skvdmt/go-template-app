@@ -1,0 +1,2 @@
+FROM ubuntu
+ENTRYPOINT [ "go-template-app" ]
