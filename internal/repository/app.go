@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 
 	_ "github.com/lib/pq"
@@ -50,6 +51,10 @@ func (a *App) openDB() (*sql.DB, error) {
 	pwd, ok := os.LookupEnv(DB_PASSWORD)
 	if !ok {
 		return nil, fmt.Errorf("env %v not set", DB_PASSWORD)
+	}
+	pwd, err := url.QueryUnescape(pwd)
+	if err != nil {
+		return nil, err
 	}
 	db, err := sql.Open(POSTGRES_DRIVER, fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
