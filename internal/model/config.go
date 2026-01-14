@@ -20,8 +20,8 @@ const (
 // Config Глобальная конфигурация.
 var Config *MainConfig
 
-// Postgres Конфигурация соединения с postgres.
-type Postgres struct {
+// PostgresConfig Конфигурация соединения с postgres.
+type PostgresConfig struct {
 	Host     string `yaml:"host"`
 	Port     uint16 `yaml:"port"`
 	User     string `yaml:"user"`
@@ -30,7 +30,7 @@ type Postgres struct {
 
 // MainConfig Основная конфигурация.
 type MainConfig struct {
-	Postgres *Postgres `yaml:"postgres"`
+	Postgres *PostgresConfig `yaml:"postgres"`
 }
 
 // LoadConfig Загрузка конфигурации в глобальную переменную Config.

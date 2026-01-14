@@ -18,7 +18,7 @@ func NewApp() (*App, error) {
 	model.Logs.Info.Info("delivery layer creating")
 	a := &App{}
 	var err error
-	// Создание транспортного слоя.
+	// Создание сервисного слоя.
 	a.usecase, err = usecase.NewApp()
 	if err != nil {
 		return nil, err
