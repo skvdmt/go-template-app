@@ -42,7 +42,7 @@ jobs:
               --target=testing \
               --output=type=docker \
               --build-arg NAME=${{ github.event.repository.name }} \
-              --build-arg DB_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+              --build-arg DB_PASSWORD=${{ secrets.POSTGRES_PASSWORD_URL_ENCODE }} \
               --no-cache \
               --tag ${{ github.repository }}:testing .
             docker rmi ${{ github.repository }}:testing
