@@ -1,2 +1,2 @@
 FROM ubuntu
-ENTRYPOINT [ "go-template-app" ]
+ENTRYPOINT [ "skvdmt-back" ]
