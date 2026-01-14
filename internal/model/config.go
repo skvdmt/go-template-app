@@ -35,6 +35,7 @@ type MainConfig struct {
 
 // LoadConfig Загрузка конфигурации в глобальную переменную Config.
 func LoadConfig() error {
+	Logs.Info.Info("configuration loading")
 	d, err := os.ReadFile(filepath.Join(configDirectory, APP_NAME, configFileName))
 	if err != nil {
 		return err

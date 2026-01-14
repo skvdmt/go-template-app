@@ -6,4 +6,5 @@ schema
 .gitignore
 docker-compose.yaml
 Dockerfile
+Dockerfile.dev
 *.md

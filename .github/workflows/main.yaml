@@ -30,7 +30,7 @@ jobs:
               --volume ${{ secrets.HOME }}/src/${{ github.event.repository.name }}/schema:/migrations \
               migrate/migrate \
                 -path /migrations \
-                -database 'postgres://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@${{ secrets.POSTGRES_HOST }}:5432/${{ github.event.repository.name }}?sslmode=disable&password=' \
+                -database 'postgres://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD_URL_ENCODE }}@${{ secrets.POSTGRES_HOST }}:5432/${{ github.event.repository.name }}?sslmode=disable&password=' \
                 up
           EOF
       - name: Testing.
