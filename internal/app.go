@@ -18,7 +18,9 @@ type App struct {
 	// для остановки ресурсов.
 	exit chan os.Signal
 	// Количество запущеных ресурсов.
-	sources *sync.WaitGroup
+	source *sync.WaitGroup
+	// Контекст приложения.
+	ctx context.Context
 	// Функция отмены контекста всего приложения.
 	cancel context.CancelFunc
 	// Транспортный слой.
@@ -29,17 +31,19 @@ type App struct {
 func NewApp() (*App, error) {
 	model.Logs.Info.Info(fmt.Sprintf("%s creating", model.APP_NAME))
 	a := &App{
-		exit:    make(chan os.Signal),
-		sources: &sync.WaitGroup{},
+		exit:   make(chan os.Signal),
+		source: &sync.WaitGroup{},
 	}
 	var err error
 	// Загрузка конфигурации.
 	if err = model.LoadConfig(); err != nil {
 		return nil, err
 	}
+	// Создание контекста.
+	a.ctx, a.cancel = context.WithCancel(context.Background())
 	// Создание транспортного слоя из которого по
 	// цепочки создаются остальные слои приложения.
-	a.delivery, err = delivery.NewApp()
+	a.delivery, err = delivery.NewApp(a.ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -51,29 +55,26 @@ func (a *App) Start() error {
 	model.Logs.Info.Info(fmt.Sprintf("%s starting", model.APP_NAME))
 	// Создане глобального канала ошибок для всего приложения.
 	model.Errors = make(chan error)
-	// Создание контекста.
-	var ctx context.Context
-	ctx, a.cancel = context.WithCancel(context.Background())
 	// Начало работы ресурса приложения.
-	a.sources.Add(1)
+	a.source.Add(1)
 	go func() {
 		var err error
-		if err = a.delivery.Start(ctx); err != nil {
+		if err = a.delivery.Start(a.ctx); err != nil {
 			model.Errors <- err
 		}
 		// Завершение работы ресурса приложения.
-		a.sources.Done()
+		a.source.Done()
 	}()
 
-	go a.signalHandle(ctx)
+	go a.signalHandle()
 	return a.errorHanle()
 }
 
 // signalHandle Отслеживание сигналов операционной системы.
-func (a *App) signalHandle(ctx context.Context) {
+func (a *App) signalHandle() {
 	signal.Notify(a.exit, syscall.SIGTERM)
 	<-a.exit
-	model.Errors <- a.stop(ctx)
+	model.Errors <- a.stop()
 }
 
 // errorHandle Обработка канала ошибок.
@@ -84,14 +85,14 @@ func (a *App) errorHanle() error {
 }
 
 // stop Остановка приложения.
-func (a *App) stop(ctx context.Context) error {
+func (a *App) stop() error {
 	// Остановка транспортного слоя из которо по цепочке
 	// останавливаются все остальные слои.
-	if err := a.delivery.Stop(ctx); err != nil {
+	if err := a.delivery.Stop(a.ctx); err != nil {
 		return err
 	}
 	// Ожидание завершения работы ресурсов приложения.
-	a.sources.Wait()
+	a.source.Wait()
 	// Закрытие канала отслеживающего сигналы операционной системы.
 	close(a.exit)
 	// Отмена контекста.

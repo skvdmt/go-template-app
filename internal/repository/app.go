@@ -23,7 +23,7 @@ type App struct {
 }
 
 // NewApp Конструктор.
-func NewApp() (*App, error) {
+func NewApp(ctx context.Context) (*App, error) {
 	model.Logs.Info.Info("repository layer creating")
 	a := &App{}
 	// var err error

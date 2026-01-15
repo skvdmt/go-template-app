@@ -14,12 +14,12 @@ type App struct {
 }
 
 // NewApp Конструктор.
-func NewApp() (*App, error) {
+func NewApp(ctx context.Context) (*App, error) {
 	model.Logs.Info.Info("usecase layer creating")
 	a := &App{}
 	var err error
 	// Создание репозиторного слоя.
-	a.repository, err = repository.NewApp()
+	a.repository, err = repository.NewApp(ctx)
 	if err != nil {
 		return nil, err
 	}
