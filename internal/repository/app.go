@@ -26,22 +26,22 @@ type App struct {
 func NewApp(ctx context.Context) (*App, error) {
 	model.Logs.Info.Info("repository layer creating")
 	a := &App{}
-	// var err error
+	var err error
 	// Соединение с базой данных.
-	// a.db, err = a.openDB()
-	// if err != nil {
-	// 	return nil, err
-	// }
+	a.db, err = a.openDB()
+	if err != nil {
+		return nil, err
+	}
 	return a, nil
 }
 
 // Stop Остановка.
 func (a *App) Stop(ctx context.Context) error {
 	// Закрытие соединения с базой данных.
-	// if err := a.db.Close(); err != nil {
-	// 	return err
-	// }
-	// model.Logs.Info.Info("disconnect from database")
+	if err := a.db.Close(); err != nil {
+		return err
+	}
+	model.Logs.Info.Info("disconnect from database")
 	model.Logs.Info.Info("repository layer stopped")
 	return nil
 }
