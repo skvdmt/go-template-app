@@ -37,6 +37,10 @@ jobs:
         run: |
           ssh -i ~/.ssh/github_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} <<EOF
             cd ~/src/${{ github.event.repository.name }}
+            docker buildx create --use \
+              --name ${{ secrets.DOCKER_NETWORK }}-builder \
+              --driver docker-container \
+              --driver-opt "network=${{ secrets.DOCKER_NETWORK }}"
             docker buildx build \
               --network=host \
               --target=testing \
@@ -46,6 +50,7 @@ jobs:
               --no-cache \
               --tag ${{ github.repository }}:testing .
             docker rmi ${{ github.repository }}:testing
+            docker buildx rm ${{ secrets.DOCKER_NETWORK }}-builder
           EOF
       - name: Building.
         run: |
