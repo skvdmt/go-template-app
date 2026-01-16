@@ -44,7 +44,6 @@ services:
       - DB_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - ./logs:/var/log
-      - ./config:/etc
       - ./build:/usr/local/bin
 volumes:
   pgdata:

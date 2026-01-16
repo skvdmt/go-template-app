@@ -66,5 +66,6 @@ func (a *App) openDB() (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	model.Logs.Info.Info("postgres connection success")
 	return db, nil
 }
