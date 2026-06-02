@@ -12,7 +12,7 @@ const (
 	APP_NAME = "go-template-app"
 
 	// Путь в директории конфигурации. (Добавляется директория с именем приложения).
-	configDirectory = "/etc"
+	configDirectory = "./config" // /etc
 	// Имя файла конфигурации.
 	configFileName = "config.yaml"
 )

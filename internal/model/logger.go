@@ -10,7 +10,7 @@ import (
 
 const (
 	// Путь к директории журналов. (Добавляется директория с именем приложения).
-	logDirectory = "/var/log"
+	logDirectory = "./logs" // /var/log
 	// Имя файла журнала ошибок.
 	logFileName = "error.log"
 	logFlag     = os.O_CREATE | os.O_APPEND | os.O_RDWR
@@ -38,10 +38,10 @@ func (l *Logger) Close() error {
 	return nil
 }
 
-// Loadlogger Создать логгер и установить ссылку на него
+// Createlogger Создать логгер и установить ссылку на него
 // в глобальную переменную Logs. В логгере создается зеркало
 // ошибок в os.Stderr и файл журнала.
-func LoadLogger() error {
+func CreateLogger() error {
 	n := "models.logger.Loadlogger"
 	// Создать дерикторию журнала для приложения в случае ее отсутствия.
 	dn := filepath.Join(logDirectory, APP_NAME)

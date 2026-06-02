@@ -1,5 +1,5 @@
 postgres:
-  host: postgres
+  host: localhost
   port: 5432
   user: dima
   database: go-template-app

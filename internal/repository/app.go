@@ -3,16 +3,19 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
+	"github.com/lib/pq/pqerror"
 	"github.com/skvdmt/go-template-app/internal/model"
 )
 
 const (
-	DB_PASSWORD     = "DB_PASSWORD"
+	DB_PASSWORD     = "POSTGRES_PASSWORD"
 	POSTGRES_DRIVER = "postgres"
 )
 
@@ -35,8 +38,27 @@ func NewApp(ctx context.Context) (*App, error) {
 	return a, nil
 }
 
+// Start Запуск.
+func (a *App) Start(ctx context.Context) error {
+	model.Logs.Info.Info("repository layer starting")
+	return nil
+}
+
 // Stop Остановка.
 func (a *App) Stop(ctx context.Context) error {
+
+	_, err := a.db.QueryContext(ctx, `SELECT pg_sleep(3);`)
+	if err != nil {
+		// Игнорируем ошибки прерывания контекста
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
+		if isPostgresErrorCode(err, pqerror.QueryCanceled) {
+			return nil
+		}
+		return err
+	}
+
 	// Закрытие соединения с базой данных.
 	if err := a.db.Close(); err != nil {
 		return err
@@ -68,4 +90,12 @@ func (a *App) openDB() (*sql.DB, error) {
 	}
 	model.Logs.Info.Info("postgres connection success")
 	return db, nil
+}
+
+// isPostgresErrorCode Поиск кода в ошибках postgres.
+func isPostgresErrorCode(err error, errcode pqerror.Code) bool {
+	if pgerr, ok := err.(*pq.Error); ok {
+		return pgerr.Code == errcode
+	}
+	return false
 }

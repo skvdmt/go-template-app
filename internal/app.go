@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/skvdmt/go-template-app/internal/delivery"
@@ -14,25 +13,24 @@ import (
 
 // App Основная структура приложения.
 type App struct {
-	// Канал сигналов операционной системы
-	// для остановки ресурсов.
-	exit chan os.Signal
-	// Количество запущеных ресурсов.
-	source *sync.WaitGroup
+	// Канал сигналов операционной системы для отслеживания
+	// сигналов прерывания работы приложения.
+	interrupt chan os.Signal
 	// Контекст приложения.
 	ctx context.Context
 	// Функция отмены контекста всего приложения.
 	cancel context.CancelFunc
 	// Транспортный слой.
 	delivery Delivery
+	// Приложение можно останавливать.
+	canStop bool
 }
 
 // NewApp Конструктор.
 func NewApp() (*App, error) {
 	model.Logs.Info.Info(fmt.Sprintf("%s creating", model.APP_NAME))
 	a := &App{
-		exit:   make(chan os.Signal),
-		source: &sync.WaitGroup{},
+		interrupt: make(chan os.Signal),
 	}
 	var err error
 	// Загрузка конфигурации.
@@ -40,6 +38,7 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 	// Создание контекста.
+	// a.ctx, a.cancel = context.WithTimeout(context.Background(), time.Nanosecond*1)
 	a.ctx, a.cancel = context.WithCancel(context.Background())
 	// Создание транспортного слоя из которого по
 	// цепочки создаются остальные слои приложения.
@@ -56,47 +55,56 @@ func (a *App) Start() error {
 	// Создане глобального канала ошибок для всего приложения.
 	model.Errors = make(chan error)
 	// Начало работы ресурса приложения.
-	a.source.Add(1)
 	go func() {
 		var err error
 		if err = a.delivery.Start(a.ctx); err != nil {
 			model.Errors <- err
 		}
-		// Завершение работы ресурса приложения.
-		a.source.Done()
+		a.canStop = true
 	}()
-
 	go a.signalHandle()
 	return a.errorHanle()
 }
 
 // signalHandle Отслеживание сигналов операционной системы.
 func (a *App) signalHandle() {
-	signal.Notify(a.exit, syscall.SIGTERM)
-	<-a.exit
-	model.Errors <- a.stop()
+	signal.Notify(a.interrupt, syscall.SIGTERM, syscall.SIGINT)
+	<-a.interrupt
+	model.Errors <- nil
 }
 
 // errorHandle Обработка канала ошибок.
 func (a *App) errorHanle() error {
 	err := <-model.Errors
-	close(model.Errors)
+	// Завершение работы ресурсов приложения.
+	if err2 := a.stop(); err2 != nil {
+		return fmt.Errorf("%w; %v", err, err2)
+	}
 	return err
 }
 
 // stop Остановка приложения.
 func (a *App) stop() error {
+	for {
+		if a.canStop {
+			break
+		}
+	}
+
+	// Отмена контекста.
+	a.cancel()
+	model.Logs.Info.Info("context canceled")
+
 	// Остановка транспортного слоя из которо по цепочке
 	// останавливаются все остальные слои.
 	if err := a.delivery.Stop(a.ctx); err != nil {
 		return err
 	}
-	// Ожидание завершения работы ресурсов приложения.
-	a.source.Wait()
-	// Закрытие канала отслеживающего сигналы операционной системы.
-	close(a.exit)
-	// Отмена контекста.
-	a.cancel()
+	// Закрытие канала отслеживающего сигналы
+	// прерывания операционной системы.
+	close(a.interrupt)
+	// Закрытие канала ошибок.
+	close(model.Errors)
 	model.Logs.Info.Info(fmt.Sprintf("%s stopped", model.APP_NAME))
 	return nil
 }

@@ -29,7 +29,7 @@ func NewApp(ctx context.Context) (*App, error) {
 // Start Запуск.
 func (a *App) Start(ctx context.Context) error {
 	model.Logs.Info.Info("delivery layer starting")
-	return nil
+	return a.usecase.Start(ctx)
 }
 
 // Stop Остановка.

@@ -26,6 +26,12 @@ func NewApp(ctx context.Context) (*App, error) {
 	return a, nil
 }
 
+// Start Запуск.
+func (a *App) Start(ctx context.Context) error {
+	model.Logs.Info.Info("usecase layer starting")
+	return a.repository.Start(ctx)
+}
+
 // Stop Остановка.
 func (a *App) Stop(ctx context.Context) error {
 	if err := a.repository.Stop(ctx); err != nil {
