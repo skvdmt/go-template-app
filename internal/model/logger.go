@@ -9,8 +9,11 @@ import (
 )
 
 const (
+	MODE = "MODE"
+	Dev  = "dev"
 	// Путь к директории журналов. (Добавляется директория с именем приложения).
-	logDirectory = "./logs" // /var/log
+	logDirectoryProd = "/var/log"
+	logDirectoryDev  = "./logs"
 	// Имя файла журнала ошибок.
 	logFileName = "error.log"
 	logFlag     = os.O_CREATE | os.O_APPEND | os.O_RDWR
@@ -42,6 +45,12 @@ func (l *Logger) Close() error {
 // в глобальную переменную Logs. В логгере создается зеркало
 // ошибок в os.Stderr и файл журнала.
 func CreateLogger() error {
+	// Установка директории файлов журнала.
+	logDirectory := logDirectoryProd
+	mode, ok := os.LookupEnv(MODE)
+	if ok && mode == Dev {
+		logDirectory = logDirectoryDev
+	}
 	n := "models.logger.Loadlogger"
 	// Создать дерикторию журнала для приложения в случае ее отсутствия.
 	dn := filepath.Join(logDirectory, APP_NAME)

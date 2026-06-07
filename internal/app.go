@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -22,26 +23,31 @@ type App struct {
 	cancel context.CancelFunc
 	// Транспортный слой.
 	delivery Delivery
-	// Приложение можно останавливать.
-	canStop bool
+	// Приложение запущено.
+	started bool
+	// Ошибки приложения.
+	eg []error
+	// Приложение уже закрывается.
+	stopping bool
 }
 
 // NewApp Конструктор.
 func NewApp() (*App, error) {
 	model.Logs.Info.Info(fmt.Sprintf("%s creating", model.APP_NAME))
+	// Загрузка конфигурации.
+	if err := model.LoadConfig(); err != nil {
+		return nil, err
+	}
+	// Создаем глобальный канал ошибок.
+	model.Errors = make(chan error)
 	a := &App{
 		interrupt: make(chan os.Signal),
 	}
-	var err error
-	// Загрузка конфигурации.
-	if err = model.LoadConfig(); err != nil {
-		return nil, err
-	}
 	// Создание контекста.
-	// a.ctx, a.cancel = context.WithTimeout(context.Background(), time.Nanosecond*1)
 	a.ctx, a.cancel = context.WithCancel(context.Background())
 	// Создание транспортного слоя из которого по
 	// цепочки создаются остальные слои приложения.
+	var err error
 	a.delivery, err = delivery.NewApp(a.ctx)
 	if err != nil {
 		return nil, err
@@ -52,48 +58,66 @@ func NewApp() (*App, error) {
 // Start Запуск приложения.
 func (a *App) Start() error {
 	model.Logs.Info.Info(fmt.Sprintf("%s starting", model.APP_NAME))
-	// Создане глобального канала ошибок для всего приложения.
-	model.Errors = make(chan error)
-	// Начало работы ресурса приложения.
+	go a.errorHandler()
 	go func() {
-		var err error
-		if err = a.delivery.Start(a.ctx); err != nil {
+		// Запуск слоев приложения по цепочке.
+		if err := a.delivery.Start(a.ctx); err != nil {
 			model.Errors <- err
 		}
-		a.canStop = true
+		a.started = true
 	}()
-	go a.signalHandle()
-	return a.errorHanle()
+	return a.interruptHandler()
 }
 
-// signalHandle Отслеживание сигналов операционной системы.
-func (a *App) signalHandle() {
+// errorHandle Обработчик глобального канала ошибок.
+func (a *App) errorHandler() {
+	model.Logs.Info.Info("error handler starting")
+	for {
+		err := <-model.Errors
+		if err == nil {
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			continue
+		}
+		a.eg = append(a.eg, err)
+		if !a.stopping {
+			a.interrupt <- syscall.SIGTERM
+		}
+	}
+}
+
+// interruptHandler Обработчик сигналов остановки приложения.
+func (a *App) interruptHandler() error {
+	model.Logs.Info.Info("error handler starting")
 	signal.Notify(a.interrupt, syscall.SIGTERM, syscall.SIGINT)
 	<-a.interrupt
-	model.Errors <- nil
-}
-
-// errorHandle Обработка канала ошибок.
-func (a *App) errorHanle() error {
-	err := <-model.Errors
-	// Завершение работы ресурсов приложения.
-	if err2 := a.stop(); err2 != nil {
-		return fmt.Errorf("%w; %v", err, err2)
+	// close sources
+	if err := a.stop(); err != nil {
+		model.Errors <- err
 	}
-	return err
+	model.Errors <- nil
+	close(model.Errors)
+	if len(a.eg) > 0 {
+		return fmt.Errorf("%v", a.eg)
+	}
+	return nil
 }
 
 // stop Остановка приложения.
 func (a *App) stop() error {
-	for {
-		if a.canStop {
-			break
-		}
-	}
+	a.stopping = true
 
 	// Отмена контекста.
 	a.cancel()
 	model.Logs.Info.Info("context canceled")
+
+	// Дождаться запуска приложения.
+	for {
+		if a.started {
+			break
+		}
+	}
 
 	// Остановка транспортного слоя из которо по цепочке
 	// останавливаются все остальные слои.
@@ -103,8 +127,6 @@ func (a *App) stop() error {
 	// Закрытие канала отслеживающего сигналы
 	// прерывания операционной системы.
 	close(a.interrupt)
-	// Закрытие канала ошибок.
-	close(model.Errors)
 	model.Logs.Info.Info(fmt.Sprintf("%s stopped", model.APP_NAME))
 	return nil
 }

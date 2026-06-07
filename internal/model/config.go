@@ -12,9 +12,11 @@ const (
 	APP_NAME = "go-template-app"
 
 	// Путь в директории конфигурации. (Добавляется директория с именем приложения).
-	configDirectory = "./config" // /etc
+	configDirectoryProd = "/etc"
+	configDirectoryDev  = "./config"
 	// Имя файла конфигурации.
-	configFileName = "config.yaml"
+	configFileNameProd = "config.yaml"
+	configFileNameDev  = "config-dev.yaml"
 )
 
 // Config Глобальная конфигурация.
@@ -35,6 +37,14 @@ type MainConfig struct {
 
 // LoadConfig Загрузка конфигурации в глобальную переменную Config.
 func LoadConfig() error {
+	Logs.Info.Info("configuration loading")
+	configDirectory := configDirectoryProd
+	configFileName := configFileNameProd
+	mode, ok := os.LookupEnv(MODE)
+	if ok && mode == Dev {
+		configDirectory = configDirectoryDev
+		configFileName = configFileNameDev
+	}
 	Logs.Info.Info("configuration loading")
 	d, err := os.ReadFile(filepath.Join(configDirectory, APP_NAME, configFileName))
 	if err != nil {
