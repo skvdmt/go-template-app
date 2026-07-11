@@ -14,22 +14,16 @@ type App struct {
 }
 
 // NewApp Конструктор.
-func NewApp(ctx context.Context) (*App, error) {
-	model.Logs.Info.Info("usecase layer creating")
-	a := &App{}
-	var err error
+func NewApp() (*App, error) {
+	model.Log.Info.Info("usecase layer creating")
 	// Создание репозиторного слоя.
-	a.repository, err = repository.NewApp(ctx)
+	r, err := repository.NewApp()
 	if err != nil {
 		return nil, err
 	}
-	return a, nil
-}
-
-// Start Запуск.
-func (a *App) Start(ctx context.Context) error {
-	model.Logs.Info.Info("usecase layer starting")
-	return a.repository.Start(ctx)
+	return &App{
+		repository: r,
+	}, nil
 }
 
 // Stop Остановка.
@@ -37,6 +31,6 @@ func (a *App) Stop(ctx context.Context) error {
 	if err := a.repository.Stop(ctx); err != nil {
 		return err
 	}
-	model.Logs.Info.Info("usecase layer stopped")
+	model.Log.Info.Info("usecase layer stopped")
 	return nil
 }

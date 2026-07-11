@@ -9,20 +9,31 @@ import (
 
 const (
 	// Название приложения.
-	APP_NAME = "go-template-app"
+	NAME = "go-template-app"
 
-	// Путь в директории конфигурации. (Добавляется директория с именем приложения).
-	configDirectoryProd = "/etc"
-	configDirectoryDev  = "./config"
-	// Имя файла конфигурации.
-	configFileNameProd = "config.yaml"
-	configFileNameDev  = "config-dev.yaml"
+	// Имя переменной окружения определяющая режим работы приложения.
+	MODE = "MODE"
+
+	// Режим разработки.
+	MODE_DEV = "dev"
+
+	// Путь в директории конфигурации в производстве.
+	CONFIG_DIRECTORY_PROD = "/etc"
+
+	// Путь в директории конфигурации в разработке.
+	CONFIG_DIRECTORY_DEV = "./config"
+
+	// Имя файла конфигурации в производстве.
+	CONFIG_FILENAME_PROD = "prod.yaml"
+
+	// Имя файла конфигурации в разработке.
+	CONFIG_FILENAME_DEV = "dev.yaml"
 )
 
-// Config Глобальная конфигурация.
-var Config *MainConfig
+// Conf Глобальный экземпляр конфигурации.
+var Conf *Config
 
-// PostgresConfig Конфигурация соединения с postgres.
+// PostgresConfig Конфигурация postgres.
 type PostgresConfig struct {
 	Host     string `yaml:"host"`
 	Port     uint16 `yaml:"port"`
@@ -30,30 +41,41 @@ type PostgresConfig struct {
 	Database string `yaml:"database"`
 }
 
-// MainConfig Основная конфигурация.
-type MainConfig struct {
+// Config Конфигурация.
+type Config struct {
 	Postgres *PostgresConfig `yaml:"postgres"`
 }
 
-// LoadConfig Загрузка конфигурации в глобальную переменную Config.
-func LoadConfig() error {
-	Logs.Info.Info("configuration loading")
-	configDirectory := configDirectoryProd
-	configFileName := configFileNameProd
-	mode, ok := os.LookupEnv(MODE)
-	if ok && mode == Dev {
-		configDirectory = configDirectoryDev
-		configFileName = configFileNameDev
-	}
-	Logs.Info.Info("configuration loading")
-	d, err := os.ReadFile(filepath.Join(configDirectory, APP_NAME, configFileName))
+// NewConfig Конфигурация.
+func NewConfig() (*Config, error) {
+	Log.Info.Info("configuration loading")
+	f, err := os.ReadFile(filepath.Join(configDir(), configFilename()))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	cfg := &MainConfig{}
-	if err := yaml.Unmarshal(d, cfg); err != nil {
-		return err
+	c := &Config{
+		Postgres: &PostgresConfig{},
 	}
-	Config = cfg
-	return nil
+	if err := yaml.Unmarshal(f, c); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// configDir Директоия конфигурации.
+func configDir() string {
+	m, o := os.LookupEnv(MODE)
+	if o && m == MODE_DEV {
+		return CONFIG_DIRECTORY_DEV
+	}
+	return filepath.Join(CONFIG_DIRECTORY_PROD, NAME)
+}
+
+// configFilename Имя файла конфигурации.
+func configFilename() string {
+	m, o := os.LookupEnv(MODE)
+	if o && m == MODE_DEV {
+		return CONFIG_FILENAME_DEV
+	}
+	return CONFIG_FILENAME_PROD
 }

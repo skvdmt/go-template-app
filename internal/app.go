@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/skvdmt/go-template-app/internal/delivery"
@@ -14,64 +15,65 @@ import (
 
 // App Основная структура приложения.
 type App struct {
-	// Канал сигналов операционной системы для отслеживания
-	// сигналов прерывания работы приложения.
+	// Канал сигналов прерывания.
 	interrupt chan os.Signal
-	// Контекст приложения.
+	// Контекст.
 	ctx context.Context
-	// Функция отмены контекста всего приложения.
+	// Отмена контекста.
 	cancel context.CancelFunc
 	// Транспортный слой.
 	delivery Delivery
-	// Приложение запущено.
-	started bool
 	// Ошибки приложения.
-	eg []error
-	// Приложение уже закрывается.
+	errors []error
+	// Приложение закрывается.
 	stopping bool
+	// Корректное завершение горутин.
+	wg *sync.WaitGroup
 }
 
 // NewApp Конструктор.
 func NewApp() (*App, error) {
-	model.Logs.Info.Info(fmt.Sprintf("%s creating", model.APP_NAME))
+	model.Log.Info.Info(fmt.Sprintf("app %s creating", model.NAME))
+	var err error
 	// Загрузка конфигурации.
-	if err := model.LoadConfig(); err != nil {
+	if model.Conf, err = model.NewConfig(); err != nil {
 		return nil, err
 	}
-	// Создаем глобальный канал ошибок.
+	// Создание глобального канала ошибок.
 	model.Errors = make(chan error)
-	a := &App{
-		interrupt: make(chan os.Signal),
-	}
-	// Создание контекста.
-	a.ctx, a.cancel = context.WithCancel(context.Background())
-	// Создание транспортного слоя из которого по
-	// цепочки создаются остальные слои приложения.
-	var err error
-	a.delivery, err = delivery.NewApp(a.ctx)
+	// Создание транспортного слоя.
+	d, err := delivery.NewApp()
 	if err != nil {
 		return nil, err
 	}
-	return a, nil
+	// Создание контекста.
+	ctx, cancel := context.WithCancel(context.Background())
+	return &App{
+		ctx:       ctx,
+		cancel:    cancel,
+		interrupt: make(chan os.Signal),
+		delivery:  d,
+		wg:        &sync.WaitGroup{},
+	}, nil
 }
 
-// Start Запуск приложения.
-func (a *App) Start() error {
-	model.Logs.Info.Info(fmt.Sprintf("%s starting", model.APP_NAME))
+// Start Запуск.
+func (a *App) Start() []error {
+	model.Log.Info.Info(fmt.Sprintf("app %s starting", model.NAME))
+
+	a.wg.Add(1)
 	go a.errorHandler()
-	go func() {
-		// Запуск слоев приложения по цепочке.
-		if err := a.delivery.Start(a.ctx); err != nil {
-			model.Errors <- err
-		}
-		a.started = true
-	}()
+
 	return a.interruptHandler()
 }
 
 // errorHandle Обработчик глобального канала ошибок.
 func (a *App) errorHandler() {
-	model.Logs.Info.Info("error handler starting")
+	model.Log.Info.Info("error handler starting")
+	defer func() {
+		model.Log.Info.Info("error handler stopped")
+		a.wg.Done()
+	}()
 	for {
 		err := <-model.Errors
 		if err == nil {
@@ -80,53 +82,34 @@ func (a *App) errorHandler() {
 		if errors.Is(err, context.Canceled) {
 			continue
 		}
-		a.eg = append(a.eg, err)
+		a.errors = append(a.errors, err)
 		if !a.stopping {
 			a.interrupt <- syscall.SIGTERM
 		}
 	}
 }
 
-// interruptHandler Обработчик сигналов остановки приложения.
-func (a *App) interruptHandler() error {
-	model.Logs.Info.Info("error handler starting")
+// interruptHandler Обработчик канала сигналов прерывания.
+func (a *App) interruptHandler() []error {
+	model.Log.Info.Info("waiting for interrupt signals")
 	signal.Notify(a.interrupt, syscall.SIGTERM, syscall.SIGINT)
 	<-a.interrupt
-	// close sources
-	if err := a.stop(); err != nil {
-		model.Errors <- err
-	}
-	model.Errors <- nil
+	a.stop()
 	close(model.Errors)
-	if len(a.eg) > 0 {
-		return fmt.Errorf("%v", a.eg)
-	}
-	return nil
+	return a.errors
 }
 
-// stop Остановка приложения.
-func (a *App) stop() error {
+// stop Остановка.
+func (a *App) stop() {
+	defer model.Log.Info.Info(fmt.Sprintf("app %s stopped", model.NAME))
 	a.stopping = true
-
 	// Отмена контекста.
 	a.cancel()
-	model.Logs.Info.Info("context canceled")
-
-	// Дождаться запуска приложения.
-	for {
-		if a.started {
-			break
-		}
-	}
-
-	// Остановка транспортного слоя из которо по цепочке
-	// останавливаются все остальные слои.
+	model.Log.Info.Info("context canceled")
+	// Остановка транспортного слоя.
 	if err := a.delivery.Stop(a.ctx); err != nil {
-		return err
+		model.Errors <- err
 	}
-	// Закрытие канала отслеживающего сигналы
-	// прерывания операционной системы.
+	// Закрытие канала сигналов прерывания.
 	close(a.interrupt)
-	model.Logs.Info.Info(fmt.Sprintf("%s stopped", model.APP_NAME))
-	return nil
 }

@@ -14,22 +14,16 @@ type App struct {
 }
 
 // NewApp Конструктор.
-func NewApp(ctx context.Context) (*App, error) {
-	model.Logs.Info.Info("delivery layer creating")
-	a := &App{}
-	var err error
+func NewApp() (*App, error) {
+	model.Log.Info.Info("delivery layer creating")
 	// Создание сервисного слоя.
-	a.usecase, err = usecase.NewApp(ctx)
+	u, err := usecase.NewApp()
 	if err != nil {
 		return nil, err
 	}
-	return a, nil
-}
-
-// Start Запуск.
-func (a *App) Start(ctx context.Context) error {
-	model.Logs.Info.Info("delivery layer starting")
-	return a.usecase.Start(ctx)
+	return &App{
+		usecase: u,
+	}, nil
 }
 
 // Stop Остановка.
@@ -37,6 +31,6 @@ func (a *App) Stop(ctx context.Context) error {
 	if err := a.usecase.Stop(ctx); err != nil {
 		return err
 	}
-	model.Logs.Info.Info("delivery layer stopped")
+	model.Log.Info.Info("delivery layer stopped")
 	return nil
 }

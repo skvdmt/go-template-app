@@ -2,13 +2,16 @@
 FROM golang:alpine AS preper
 ARG NAME
 WORKDIR /usr/src/${NAME}
+# Создание директории конфигурации.
+RUN mkdir /etc/${NAME}
+# Копирование файлов.
 COPY . .
-COPY ./config /etc
+COPY ./config/prod.yaml /etc/${NAME}/prod.yaml
 RUN go mod download
 
 # Тестирование.
 FROM preper AS testing
-ARG DB_PASSWORD
+ARG POSTGRES_PASSWORD
 RUN go test --tags=unit -v ./...
 RUN go test --tags=integration -v ./...
 RUN go test --tags=e2e -v ./...
@@ -23,8 +26,12 @@ ARG NAME
 # Настройки.
 RUN apk add tzdata
 RUN ln -s /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+# Создание директории журналов.
+RUN mkdir /var/log/${NAME}
+# Создание директории конфигурации.
+RUN mkdir /etc/${NAME}
 # Копирование файлов.
-COPY ./config /etc
+COPY ./config/prod.yaml /etc/${NAME}/prod.yaml
 COPY --from=building /usr/local/bin/${NAME} /usr/local/bin/${NAME}
 # Создание точки входа.
 COPY ./docker-entrypoint.sh /usr/local/bin
