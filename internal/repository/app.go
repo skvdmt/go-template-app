@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 
 	"github.com/lib/pq"
@@ -53,9 +54,13 @@ func (a *App) closeDB() error {
 // openDB Открывает соединение с базой данных.
 func (a *App) openDB() (*sql.DB, error) {
 	model.Log.Info.Info("postgres database connection opening")
-	pwd, o := os.LookupEnv(POSTGRES_PASSWORD)
+	p, o := os.LookupEnv(POSTGRES_PASSWORD)
 	if !o {
 		return nil, fmt.Errorf("env %s is not set", POSTGRES_PASSWORD)
+	}
+	pwd, err := url.QueryUnescape(p)
+	if err != nil {
+		pwd = p
 	}
 	c, err := pq.NewConnectorConfig(pq.Config{
 		User:     model.Conf.Postgres.User,
